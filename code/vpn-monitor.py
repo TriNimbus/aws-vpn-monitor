@@ -11,6 +11,7 @@
 #  and limitations under the License.                                                                                #
 ######################################################################################################################
 
+from __future__ import print_function
 import json
 import boto3
 import logging
@@ -26,9 +27,9 @@ cw = boto3.client('cloudwatch')
 
 
 # Save the connection status in the CloudWatch Custom Metric
-def putCloudWatchMetric(metricName, value, vgw, cgw, region):
+def putCloudWatchMetric(nameSpace, metricName, value, vgw, cgw, region):
     cw.put_metric_data(
-        Namespace='VPNStatus',
+        Namespace=nameSpace,
         MetricData=[{
             'MetricName': metricName,
             'Value': value,
@@ -50,6 +51,11 @@ def putCloudWatchMetric(metricName, value, vgw, cgw, region):
 
 
 def lambda_handler(event, context):
+    if 'cw_namespace' in os.environ.keys():
+        Namespace=os.environ['cw_namespace']
+    else:
+        Namespace='VPNStatus'
+
     # Create connections
     ec2 = boto3.client('ec2')
     AWS_Regions = ec2.describe_regions()['Regions']
@@ -90,7 +96,7 @@ def lambda_handler(event, context):
                     if vpn['VgwTelemetry'][1]['Status'] == "UP":
                         active_tunnels += 1
                     log.info('{} VPN ID: {}, State: {}, Tunnel0: {}, Tunnel1: {} -- {} active tunnels'.format(region['RegionName'], vpn['VpnConnectionId'],vpn['State'],vpn['VgwTelemetry'][0]['Status'],vpn['VgwTelemetry'][1]['Status'], active_tunnels))
-                    putCloudWatchMetric(vpn['VpnConnectionId'], active_tunnels, vpn['VpnGatewayId'], vpn['CustomerGatewayId'], region['RegionName'])
+                    putCloudWatchMetric(Namespace, vpn['VpnConnectionId'], active_tunnels, vpn['VpnGatewayId'], vpn['CustomerGatewayId'], region['RegionName'])
             # Build anonymous data
             if sendData == "Yes":
                 countDict['vpn_connections'] = connections
